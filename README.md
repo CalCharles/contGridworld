@@ -1,6 +1,7 @@
 A lightweight continuous simulator:
 ===============
-<ul> Implementations
+Implementations:
+<ul> 
   <li>Spheres with momentum</li>
   <li>collision checking with polygons and spheres</li>
 </ul>
