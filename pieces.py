@@ -22,6 +22,7 @@ class Piece:
         self.color = np.array([0.0, 0.0,0.0])
         self.attach = None
         self.radii = np.array([0.0, 0.0,0.0])
+        self.name = piece
 
     def calculate_moment(self):
         raise AssertionError("Do no instantiate piece class")
@@ -59,7 +60,8 @@ class Rectangle(Piece):
 
     tpe = "Rectangle"
 
-    def __init__(self, mass, radii, velocity, location, color):
+    def __init__(self, mass, radii, velocity, location, color, name="Rect"):
+    	self.name = name
         self.mass = mass
         self.acceleration = np.array((0.0,0.0))
         self.velocity = velocity
@@ -83,7 +85,8 @@ class Rectangle(Piece):
         return self.test_aabb(point)
 
     def compute_intersection(self, other):
-        if other.tpe == "Circle" or other.tpe == "Agent" or (other.tpe == "Hazard" and other.type == "Rectangle"):
+    	print other.tpe
+        if other.tpe == "Circle" or other.tpe == "Agent" or ((other.tpe == "Hazard" or other.tpe == "Terminal") and other.type == "Rectangle"):
             print "contact"
             if self.compare_aabb(other):
                 if self.test_aabb(other.location):
@@ -103,14 +106,14 @@ class Rectangle(Piece):
                         return roots[0]
                     else:
                         return (roots[0] + roots[1]) /2
-        if other.tpe == "Rectangle" or (other.tpe == "Hazard" and other.type == "Rectangle"):
+        if other.tpe == "Rectangle" or (other.tpe == "Hazard" or other.tpe == "Terminal" and other.type == "Rectangle"):
             # this isn't implemented, so just ignore rectangle intersections
             return None
             raise AssertionError("Not yet implemented")
             
 
     def apply_contact(self, other, point):
-        raise AssertionError("Do no instantiate piece class")
+        raise AssertionError("Rectangle contacts (momentum) not yet implemented")
 
     def update_velocity(self, newVelocity):
         raise AssertionError("Momentum for squares not yet implemented")
@@ -124,7 +127,8 @@ class Circle(Piece):
 
     tpe = "Circle"
 
-    def __init__(self, mass, radii, velocity, location, color):
+    def __init__(self, mass, radii, velocity, location, color, name = "circ"):
+    	self.name = name
         self.mass = mass
         self.acceleration = np.array((0.0,0.0))
         self.velocity = velocity
@@ -163,14 +167,14 @@ class Circle(Piece):
 
     def compute_intersection(self, other):
         Pint = None
-        if other.tpe == "Circle" or other.tpe == "Agent" or (other.tpe == "Hazard" and other.type == "Circle"):
+        if other.tpe == "Circle" or other.tpe == "Agent" or ((other.tpe == "Hazard" or other.tpe == "Terminal") and other.type == "Circle"):
             if self.compare_aabb(other):
                 print "contact"
                 d = np.linalg.norm(self.location - other.location)
                 if d <= self.radii[0] + other.radii[0] + .05:
                     a = (self.r2 + other.r2 + d**2)/(2*d)
                     Pint = self.location + a* (other.location + self.location)
-        elif other.tpe == "Rectangle" or (other.tpe == "Hazard" and other.type == "Rectangle"):
+        elif other.tpe == "Rectangle" or (other.tpe == "Hazard" or other.tpe == "Terminal" and other.type == "Rectangle"):
             print "contact Rectangle"
             if self.compare_aabb(other):
                 Pint = other.compute_intersection(self)
@@ -188,6 +192,9 @@ class Circle(Piece):
         elif other.tpe == "Hazard":
             if self.attach is not None and self.attach.tpe == "Agent":
                 self.attach.reward += other.reward
+        elif other.tpe == "Terminal":
+            if other.satisfy_condition(self):
+            	return
             # no collision dynamics yet implemented for hazards
 
 
@@ -205,6 +212,7 @@ class Agent(Circle):
         self.grabbing= False
         self.attach = None
         self.reward = 0
+        self.name = "Agent"
 
     def toggleGrab(self):    
         if self.attach is not None:
@@ -239,6 +247,9 @@ class Agent(Circle):
             raise AssertionError("Rectangle not yet implemented")
         elif other.tpe == "Hazard":
             self.reward += other.reward
+        elif other.tpe == "Terminal":
+            if other.satisfy_condition(self):
+            	return
 
 class Hazard(Piece):
 
@@ -277,3 +288,65 @@ class Hazard(Piece):
     def update_velocity(self, newVelocity):
         return
         raise AssertionError("Momentum not yet applied to Hazards")
+
+class Terminal(Piece):
+
+    tpe = "Terminal"
+    def __init__(self, radii, location, color, shape, reward, obj, attach):
+        self.shape = shape(0, radii, np.array((0.0,0.0)), location, color)
+        self.attach = None
+        self.color = color
+        self.location = location
+        self.velocity = self.shape.velocity
+        self.acceleration = self.shape.acceleration
+        self.type = shape.tpe
+        if shape.tpe == "Circle":
+        	self.r2 = self.shape.r2 
+        self.radii = radii
+        self.reward = reward
+        self.set_condition(obj, attach)
+        self.terminate = False
+
+    def calculate_moment(self):
+        self.shape.calculate_moment()
+
+    def compute_occupancy(self, point):
+        return self.shape.compute_occupancy(point)
+
+    def test_aabb(self, b):
+        return self.shape.test_aabb(b)
+
+    def compare_aabb(self, b):
+        return self.shape.compare_aabb(b)
+
+    def compute_intersection(self, other):
+        return self.shape.compute_intersection(other)
+
+    def apply_contact(self, other, point):
+        other.apply_contact(self, point)
+
+    def update_velocity(self, newVelocity):
+        return
+        raise AssertionError("Momentum not yet applied to Terminal states")
+
+    def set_condition(self, obj, attach):
+    	self.obj = obj
+    	self.attach = attach
+
+    def satisfy_condition(self, obj):
+    	if obj.name == self.obj.name:
+    		if not self.attach:
+    			obj.reward += self.reward
+    			self.terminate = True
+    			print "terminate"
+    			return True
+    		if self.attach:
+    			if obj.attach is not None and obj.attach.tpe == "Agent":
+    				obj.attach.agent += self.reward
+    				self.terminate = True
+    				return True
+    			return False
+    	else:
+    		return False
+
+

@@ -9,13 +9,17 @@ class Scene():
 	a gridworld scene
 	"""
 
-	def __init__(self):
+	def __init__(self, penalty, limit):
 		self.pieces = []
 		self.boundaries = [0,10,0,10]
 		self.granularity = .05
 		self.dt = .01
+		self.penalty = penalty
+		self.limit = limit
 		self.agent = None
 		self.map = np.zeros((int((self.boundaries[1] - self.boundaries[0])/self.granularity), int((self.boundaries[3] - self.boundaries[2])/self.granularity), 3))
+		self.terminals = []
+		self.terminate = False
 
 	def update_scene(self):
 		cx, cy = self.boundaries[0], self.boundaries[2]
@@ -30,11 +34,28 @@ class Scene():
 			inter = self.agent.compute_intersection(self.pieces[j])
 			if inter != None:
 				self.agent.apply_contact(self.pieces[j], inter)
+		for i in range(0,len(self.terminals)):
+			inter = self.agent.compute_intersection(self.terminals[i])
+			if inter != None:
+				self.agent.apply_contact(self.terminals[i], inter)
+				if self.terminals[i].terminate:
+					self.terminate = True
+					return
+		for i in range(len(self.terminals)):
+			for j in range(0,len(self.pieces)):
+				inter = self.terminals[i].compute_intersection(self.pieces[j])
+				if inter != None:
+					self.pieces[i].apply_contact(self.pieces[j], inter)
+					if self.terminals[i].terminate:
+						self.terminate = True
+						return
 		for i in range(len(self.pieces)):
 			for j in range(i+1,len(self.pieces)):
 				inter = self.pieces[i].compute_intersection(self.pieces[j])
 				if inter != None:
 					self.pieces[i].apply_contact(self.pieces[j], inter)
+
+		self.agent.reward += self.penalty * self.dt
 
 
 	def render_scene(self):
@@ -43,10 +64,10 @@ class Scene():
 		print "rendering"
 		x = self.boundaries[0]
 		y = self.boundaries[1]
-		for i in range(int((self.boundaries[1] - self.boundaries[0]) / self.granularity)):
+		for j in range(int((self.boundaries[1] - self.boundaries[0]) / self.granularity)):
 			x += self.granularity
 			y = 0
-			for j in range(int((self.boundaries[3] - self.boundaries[2]) / self.granularity)):
+			for i in range(int((self.boundaries[3] - self.boundaries[2]) / self.granularity)):
 				y += self.granularity
 				pt = np.array([x,y])
 				if self.agent.test_aabb(pt):
@@ -56,21 +77,32 @@ class Scene():
 					if piece.test_aabb(pt):
 						if piece.compute_occupancy(pt):
 							self.map[i,j] = self.map[i,j] + piece.color
+				for piece in self.terminals:
+					if piece.test_aabb(pt):
+						if piece.compute_occupancy(pt):
+							self.map[i,j] = self.map[i,j] + piece.color
+
+		self.map = np.flipud(self.map)
 
 
 	def run_demonstration(self):
 		"""
 		Runs a demonstration on the current scene. Takes in keyboard commands for movement, and 
 		"""
+		T = 0
 		while True: 
 			if self.agent != None:
-				print self.agent.velocity, self.agent.grabbing, self.agent.reward
+				print self.agent.velocity, self.agent.grabbing, self.agent.reward, T
 				self.render_scene()
+				T += self.dt
 				self.update_scene()
+				if T == self.limit:
+					cv2.destroyAllWindows()
+					return
 				a = cv2.waitKey(30)
 				cv2.imshow("sphere scene",self.map)
 				if a == ord("d"):
-					self.agent.velocity[0] += 1
+					self.agent.velocity[0] += 1 # should add actions to the agent rather than hard coding
 				elif a == ord("a"):
 					self.agent.velocity[0] -= 1
 				elif a == ord("w"):
@@ -83,11 +115,14 @@ class Scene():
 				elif a == 27:
 					cv2.destroyAllWindows()
 					return
+				if self.terminate:
+					cv2.destroyAllWindows()
+					return
 
-	def add_agent(self, mass, radii, velocity, location, color):
+	def add_agent(self, mass, radii, velocity, location, color, name= ""):
 		self.agent = Pieces.Agent(mass, radii, velocity, location, color)
 
-	def add_circle(self, mass, radii, velocity, location, color):
+	def add_circle(self, mass, radii, velocity, location, color, name= ""):
 		self.pieces.append(Pieces.Circle(mass, radii, velocity, location, color))
 
 	def add_circle_hazard(self, radii, location, color, reward):
@@ -95,3 +130,25 @@ class Scene():
 
 	def add_rectangle_hazard(self, radii, location, color, reward):
 		self.pieces.append(Pieces.Hazard(radii, location, color, Pieces.Rectangle, reward))
+
+	def add_circle_terminal_agent(self, radii, location, color, reward, attach):
+		self.terminals.append(Pieces.Terminal(radii, location, color, Pieces.Circle, reward, self.agent, attach))
+
+	def add_rectangle_terminal_agent(self, radii, location, color, reward, attach):
+		self.terminals.append(Pieces.Terminal(radii, location, color, Pieces.Rectangle, reward, self.agent, attach))
+
+	def add_circle_terminal_object(self, radii, location, color, reward, attach, name):
+		for piece in self.pieces:
+			if piece.name == name:
+				chosen = piece
+		if chosen is None:
+			raise AssertionError("Not a name of a current piece")
+		self.terminals.append(Pieces.Terminal(radii, location, color, Pieces.Circle, reward, chosen, attach))
+
+	def add_rectangle_terminal_agent(self, radii, location, color, reward, attach, name):
+		for piece in self.pieces:
+			if piece.name == name:
+				chosen = piece
+		if chosen is None:
+			raise AssertionError("Not a name of a current piece")
+		self.terminals.append(Pieces.Terminal(radii, location, color, Pieces.Rectangle, reward, chosen, attach))
