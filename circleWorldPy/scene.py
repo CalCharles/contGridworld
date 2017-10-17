@@ -32,27 +32,29 @@ class Scene():
 			#no current support for angular velocity
 		for j in range(0,len(self.pieces)):
 			inter = self.agent.compute_intersection(self.pieces[j])
-			if inter != None:
+			if inter is not None:
 				self.agent.apply_contact(self.pieces[j], inter)
 		for i in range(0,len(self.terminals)):
 			inter = self.agent.compute_intersection(self.terminals[i])
-			if inter != None:
+			if inter is not None:
 				self.agent.apply_contact(self.terminals[i], inter)
 				if self.terminals[i].terminate:
 					self.terminate = True
+					self.agent.reward += self.terminals[i].reward
 					return
 		for i in range(len(self.terminals)):
 			for j in range(0,len(self.pieces)):
 				inter = self.terminals[i].compute_intersection(self.pieces[j])
-				if inter != None:
-					self.pieces[i].apply_contact(self.pieces[j], inter)
+				if inter is not None:
+					self.terminals[i].apply_contact(self.pieces[j], inter)
 					if self.terminals[i].terminate:
 						self.terminate = True
+						self.agent.reward += self.terminals[i].reward
 						return
 		for i in range(len(self.pieces)):
 			for j in range(i+1,len(self.pieces)):
 				inter = self.pieces[i].compute_intersection(self.pieces[j])
-				if inter != None:
+				if inter is not None:
 					self.pieces[i].apply_contact(self.pieces[j], inter)
 
 		self.agent.reward += self.penalty * self.dt
@@ -87,12 +89,12 @@ class Scene():
 
 	def run_demonstration(self):
 		"""
-		Runs a demonstration on the current scene. Takes in keyboard commands for movement, and 
+		Runs a demonstration on the current scene. Takes in keyboard commands for movement, and applies corresponding action
 		"""
 		T = 0
 		while True: 
 			if self.agent != None:
-				print self.agent.velocity, self.agent.grabbing, self.agent.reward, T
+				print self.agent.velocity, self.agent.grabbing, self.agent.reward, T, self.terminate
 				self.render_scene()
 				T += self.dt
 				self.update_scene()
@@ -110,6 +112,9 @@ class Scene():
 				elif a == ord("s"):
 					print "input"
 					self.agent.velocity[1] -= 1
+				elif a == ord("q"):
+					print "input"
+					self.agent.rotate(self.dt)
 				elif a == ord(" "):
 					self.agent.toggleGrab()
 				elif a == 27:
@@ -119,11 +124,48 @@ class Scene():
 					cv2.destroyAllWindows()
 					return
 
-	def add_agent(self, mass, radii, velocity, location, color, name= ""):
+	def run_rollout(self, policy):
+		"""
+		Runs a demonstration on the current scene. Takes in keyboard commands for movement, and 
+		"""
+		T = 0
+		while True: 
+			if self.agent != None:
+				print self.agent.velocity, self.agent.grabbing, self.agent.reward, T
+				# self.render_scene()
+				T += self.dt
+				self.update_scene()
+				if T == self.limit:
+					cv2.destroyAllWindows()
+					return
+				a = cv2.waitKey(30)
+				cv2.imshow("sphere scene",self.map)
+				if a == ord("d"):
+					self.agent.velocity[0] += 1 # should add actions to the agent rather than hard coding
+				elif a == ord("a"):
+					self.agent.velocity[0] -= 1
+				elif a == ord("w"):
+					self.agent.velocity[1] += 1
+				elif a == ord("s"):
+					print "input"
+					self.agent.velocity[1] -= 1
+				elif a == ord("q"):
+					print "input"
+					self.agent.velocity[1] -= 1
+				elif a == ord(" "):
+					self.agent.toggleGrab()
+				elif a == 27:
+					cv2.destroyAllWindows()
+					return
+				if self.terminate:
+					cv2.destroyAllWindows()
+					return
+
+	def add_agent(self, mass, radii, velocity, location, color):
 		self.agent = Pieces.Agent(mass, radii, velocity, location, color)
 
 	def add_circle(self, mass, radii, velocity, location, color, name= ""):
-		self.pieces.append(Pieces.Circle(mass, radii, velocity, location, color))
+		self.pieces.append(Pieces.Circle(mass, radii, velocity, location, color, name=name))
 
 	def add_circle_hazard(self, radii, location, color, reward):
 		self.pieces.append(Pieces.Hazard(radii, location, color, Pieces.Circle, reward))
@@ -145,9 +187,9 @@ class Scene():
 			raise AssertionError("Not a name of a current piece")
 		self.terminals.append(Pieces.Terminal(radii, location, color, Pieces.Circle, reward, chosen, attach))
 
-	def add_rectangle_terminal_agent(self, radii, location, color, reward, attach, name):
+	def add_rectangle_terminal_object(self, radii, location, color, reward, attach, name):
 		for piece in self.pieces:
-			if piece.name == name:
+			if piece.tpe != "Hazard" and piece.name == name:
 				chosen = piece
 		if chosen is None:
 			raise AssertionError("Not a name of a current piece")
