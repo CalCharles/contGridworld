@@ -7,7 +7,7 @@
 #include <Eigen/LU>
 
 
-using namespace std;
+using namespace Eigen;
 
 class Piece {
 protected:
@@ -23,7 +23,7 @@ protected:
     float attach;
     Vector2f radii;
     string name;
-    string shape;
+    string geometry;
     string type; // Not exactly the safe way of doing this
     Piece* attach
 
@@ -48,7 +48,9 @@ protected:
 
     virtual void updateVelocity(Vector2f newVelocity);
 
-}
+    virtual void updateLocation(Vector2f location);
+
+};
 
 class Ellipse : public Piece{
 	/*
@@ -73,11 +75,13 @@ protected:
 
 	void updateVelocity(Vector2f newVelocity);
 
-}
+    void updateLocation(Vector2f location);
+
+};
 
 class Rectangle : public Piece{
 protected:
-    float[8] corners;
+    float corners[8];
 
 	Rectangle();
 	~Rectangle();
@@ -95,7 +99,9 @@ protected:
 
 	void updateVelocity(Vector2f newVelocity);
 
-}
+    void updateLocation(Vector2f location);
+
+};
 
 class Agent : public Piece {
 protected:
@@ -117,13 +123,17 @@ protected:
 
 	bool computeOccupancy(point);
 
+	void updateShape();
+
 	Vector2f computeIntersection(Piece* other);
 
 	void applyContact(Piece* other, Vector2f point);
 
 	void updateVelocity(Vector2f newVelocity);
 
-}
+    void updateLocation(Vector2f location);
+
+};
 
 class Hazard : public Piece{
 protected:
@@ -135,6 +145,8 @@ protected:
 	float calculateMoment();
 
 	bool computeOccupancy(point);
+	
+	void updateShape();
 
 	Vector2f computeIntersection(Piece* other);
 
@@ -142,7 +154,9 @@ protected:
 
 	void updateVelocity(Vector2f newVelocity);
 
-}
+    void updateLocation(Vector2f location);
+
+};
 
 class Terminal : public Piece{
 protected:
@@ -158,6 +172,8 @@ protected:
 	void satisfyCondition(Piece* obj);
 
 	float calculateMoment();
+	
+	void updateShape();
 
 	bool computeOccupancy(point);
 
@@ -167,4 +183,6 @@ protected:
 
 	void updateVelocity(Vector2f newVelocity);
 
-}
+    void updateLocation(Vector2f location);
+
+};
