@@ -5,8 +5,7 @@ cmake_minimum_required(VERSION 2.8)
 
 # Application source
 set(APPLICATION_SOURCE
-    
-    example_04.cpp
+    test.cpp
 )
 
 #-------------------------------------------------------------------------------
@@ -31,9 +30,9 @@ link_directories(
 #-------------------------------------------------------------------------------
 # Add executable
 #-------------------------------------------------------------------------------
-add_executable(as4 ${APPLICATION_SOURCE})
+add_executable(test ${APPLICATION_SOURCE})
 
-target_link_libraries( as4
+target_link_libraries( test
     glew ${GLEW_LIBRARIES}
     glfw ${GLFW_LIBRARIES}
     ${OPENGL_LIBRARIES}
@@ -45,7 +44,7 @@ target_link_libraries( as4
 # Platform-specific configurations for target
 #-------------------------------------------------------------------------------
 if(APPLE)
-  set_property( TARGET as4 APPEND_STRING PROPERTY COMPILE_FLAGS
+  set_property( TARGET test APPEND_STRING PROPERTY COMPILE_FLAGS
                 "-Wno-deprecated-declarations -Wno-c++11-extensions")
 endif(APPLE)
 
@@ -53,4 +52,4 @@ endif(APPLE)
 set(EXECUTABLE_OUTPUT_PATH ..)
 
 # Install to project root
-install(TARGETS as4 DESTINATION ${Assignment1_SOURCE_DIR})
+install(TARGETS test DESTINATION ${circleWorldcpp_SOURCE_DIR})

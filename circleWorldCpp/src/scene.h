@@ -1,25 +1,19 @@
-#include <iostream>
 #include <vector>
-#include <iostream>
-#include <fstream>
-#include <cmath>
-#include <stdlib.h>
-#include <time.h>
-#include <math.h>
+#include <GLFW/glfw3.h>
 #include "piece.cpp"
 
 using namespace Eigen;
 
 class Scene {
-protected:
-	vector<Piece*> pieces;
+public:
+	std::vector<Piece*> pieces;
 	Vector4f view;
 	float dxy;
 	float dt;
 	float penalty;
 	int limit;
-	Agent agent;
-	vector<Terminal*> terminals;
+	Agent* agent;
+	std::vector<Terminal*> terminals;
 	bool terminate;
 	bool ego;
 	Vector2f radii;
@@ -34,16 +28,16 @@ protected:
 
 	void updateView();
 	void updateScene();
-    void renderView(string name, int ti);
+    void renderView(std::string name, int ti);
     void display ( GLFWwindow* window );
 	
-	void applyAction(string action);
+	void takeAction(std::string action, Vector2f force);
 
-    void addCircleAgent(float mass, Vector2f radii, Vector2f velocity, Vector2f location, Vector2f color);
-    void addCircle(float mass, Vector2f radii, Vector2f velocity, Vector2f location, Vector2f color, string name);
-    void addCircleHazard(Vector2f radii, Vector2f location, Vector2f color, float reward);
-    void addRectangleHazard(Vector2f radii, Vector2f location, Vector2f color, float reward);
-    void addCircleTerminal(Vector2f radii, Vector2f location, Vector2f color, float reward, bool attach, string name);
-    void addRectangleTerminal(Vector2f radii, Vector2f location, Vector2f color, float reward, bool attach, string name);
+    void addEllipseAgent(float mass, Vector2f radii, Vector2f velocity, Vector2f location, Vector3f color);
+    void addEllipse(float mass, Vector2f radii, Vector2f velocity, Vector2f location, Vector3f color, std::string name);
+    void addEllipseHazard(Vector2f radii, Vector2f location, Vector3f color, float reward);
+    void addRectangleHazard(Vector2f radii, Vector2f location, Vector3f color, float reward);
+    void addEllipseTerminal(Vector2f radii, Vector2f location, Vector3f color, float reward, bool attach, std::string name);
+    void addRectangleTerminal(Vector2f radii, Vector2f location, Vector3f color, float reward, bool attach, std::string name);
 
 };
