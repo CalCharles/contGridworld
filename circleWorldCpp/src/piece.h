@@ -85,6 +85,7 @@ public:
 class Rectangle : public Piece{
 public:
     float corners[8];
+    int lastContact;
 
 	Rectangle();
 	~Rectangle();
@@ -202,14 +203,14 @@ public:
 
 };
 
-// class Wall : public Rectangle {
-// public:
-
-// 	Wall();
-// 	~Wall();
-// 	Wall(Wall* rect);
+class Wall : public Rectangle {
+public:
+	// A wall is just a rectangle with infinite mass
+	Wall();
+	~Wall();
+	Wall(Wall* rect);
 	
-// 	virtual void setPiece(float mass, Vector2f radii, Vector2f velocity, Vector2f location, Vector3f color, std::string name);
+	virtual void setPiece(float mass, Vector2f radii, Vector2f velocity, Vector2f location, Vector3f color, std::string name);
 
-// 	virtual void applyContact(Piece* other, Vector2f point);
-// };
+	virtual void applyContact(Piece* other, Vector2f point);
+};

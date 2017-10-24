@@ -34,15 +34,15 @@ Piece::~Piece() {
 }
 
 bool Piece::testAabb(Vector2f b) {
-    if (fabs(this->location[0] - b[0]) > (this->radii[0])) return false;
-    if (fabs(this->location[1] - b[1]) > (this->radii[1])) return false;
+    if (fabs(this->location[0] - b[0]) >= (this->radii[0])) return false;
+    if (fabs(this->location[1] - b[1]) >= (this->radii[1])) return false;
     return true;
 
 }
 
 bool Piece::compareAabb(Piece* b) {
-    if (fabs(this->location[0] - b->location[0]) > (this->radii[0] + b->radii[0])) return false;
-    if (fabs(this->location[1] - b->location[1]) > (this->radii[1] + b->radii[1])) return false;
+    if (fabs(this->location[0] - b->location[0]) >= (this->radii[0] + b->radii[0])) return false;
+    if (fabs(this->location[1] - b->location[1]) >= (this->radii[1] + b->radii[1])) return false;
     return true;
 }
 
@@ -73,17 +73,18 @@ void Rectangle::setPiece(float mass, Vector2f radii, Vector2f velocity, Vector2f
 	this->attach = NULL;
 	this->color = color;
 	this->name = name;
+	this->lastContact = 0; // Records the last edge which was connected, as an integer 0-3 in the same order as the corners
 
 	Vector2f t1(radii[0], radii[1]);
 	Vector2f t2(radii[0], -radii[1]);
 	this->corners[0] = this->location[0] - t1[0];
 	this->corners[1] = this->location[1] - t1[1];
-	this->corners[2] = this->location[0] + t2[0];
-	this->corners[3] = this->location[1] + t2[1];
+	this->corners[2] = this->location[0] - t2[0];
+	this->corners[3] = this->location[1] - t2[1];
 	this->corners[4] = this->location[0] + t1[0];
 	this->corners[5] = this->location[1] + t1[1];
-	this->corners[6] = this->location[0] - t2[0];
-	this->corners[7] = this->location[1] - t2[1];
+	this->corners[6] = this->location[0] + t2[0];
+	this->corners[7] = this->location[1] + t2[1];
 }
 
 float Rectangle::calculateMoment() {
@@ -102,6 +103,7 @@ inline float square(float x) {
 Vector2f Rectangle::computeIntersection(Piece* other) {
 	if(other->geometry == "Ellipse") {
 		if (this->compareAabb(other)) {
+			this->lastContact = 0;
 			if (this->testAabb(other->location)) {
 				return Vector2f(this->corners[0], this->corners[1]);
 			}
@@ -111,30 +113,40 @@ Vector2f Rectangle::computeIntersection(Piece* other) {
 				if (i != 6){
 					edge2 = Vector2f(this->corners[i+2], this->corners[i+3]);
 				} else {
-					edge2 = Vector2f(this->corners[0], this->corners[1]);					
+					edge2 = Vector2f(this->corners[0], this->corners[1]);
 				}
-		        // std::cout << "edge1 " << edge1 << "\n" "edge2" << edge2 << " \n";
-		        Vector2f csum = edge1 + edge2 + other->location;
-		        float c1 = csum.squaredNorm();
-		        float c2 = -2*edge1[0]*csum[0] - 2*edge1[1]*csum[1];
-		        float c3 = square(edge1[0]) + square(edge1[1]) - ((Ellipse*)other)->r2;
+		        // std::cout << "edge1 " << edge1 << "\nedge2 " << edge2 << "\ncenter" << other->location << " \n";
+		        Vector2f csum = edge1 - other->location;
+		        Vector2f esum = edge2 - edge1;
+		        float c1 = esum.squaredNorm();
+		        float c2 = 2*esum[0]*csum[0] + 2*esum[1]*csum[1];
+		        float c3 = square(csum[0]) + square(csum[1]) - ((Ellipse*)other)->r2;
+				// std::cout << "c1 " << c1 << "\nc2 " << c2 << " \nc3 " << c3 << "\n";
+
 		        Vector2f roots = qsolver(c1, c2, c3);
 		        if (roots[0] == -1232.0f && roots[1] == -9992.0f) {
+					this->lastContact++;
 		        	continue;
-		        } else if (roots[0] == roots[1]) {
+		        } else if (roots[0] == roots[1] && roots[0] <= 1 && roots[0] >= 0) {
 		        	return Vector2f((1-roots[0]) * edge1[0] + roots[0] * edge2[0], (1-roots[0]) * edge1[1] + roots[0] * edge2[1]);
 		        } else {
+		        	// if (roots[0] <= 1 && roots[0] >= 0)
 		        	float avg = (roots[0] + roots[1])/2.0f;
 		        	return Vector2f((1-avg) * edge1[0] + avg * edge2[0], (1-avg) * edge1[1] + avg * edge2[1]);
 		        }
 		    }
 		}
+		this->lastContact = -1; 
 		return Vector2f(magicError1, magicError2);
 	}
 	if (other->geometry == "Rectangle") {
 		// I haven't implemented collisions with rectangles (though this should be fairly easy, just line-segment, line-segments collisions )
 		return Vector2f(magicError1, magicError2);
 		// throw std::invalid_argument("Not implemented yet");
+	} 
+	else if (other -> geometry == "Wall") {
+		// same reasoning as above
+	    return Vector2f(magicError1, magicError2);
 	}
 	// If you get a shape that isn't actually a shape
 	throw std::invalid_argument("Unknown Shape");
@@ -146,12 +158,11 @@ void Rectangle::applyContact(Piece* other, Vector2f point) {
 }
 
 void Rectangle::updateVelocity(Vector2f newVelocity) {
-	// I haven't written motion with rectangles because I'm not sure how the dynamics work yet
-	throw std::invalid_argument("Not implemented yet");
+	this->velocity = newVelocity;
 }
 
 void Rectangle::updateLocation(Vector2f location) {
-	throw std::invalid_argument("Not implemented yet");
+	this->location = location;
 }
 
 Ellipse::Ellipse() {
@@ -198,13 +209,12 @@ Vector2f Ellipse::computeIntersection(Piece* other) {
 			float d = (this->location - other->location).norm();
 			if (d <= this->radii[0] + other->radii[0] + .05 && d != 0) {
 				float a = (this->r2 + (other->radii[0] * other->radii[1]) + pow(d,2))/(2*d);
-				// std::cout << a << "\n" << this->location << "\n" << other->location << "\n\n";
 				return this->location + a * (other->location + this->location);
 			}
 		}
 		return Vector2f(magicError1, magicError2);
 	}
-	else if (other->geometry == "Rectangle") {
+	else if (other->geometry == "Rectangle" || other->geometry == "Wall") {
 		if(this->compareAabb(other)) {
 			return other->computeIntersection(this);
 		}
@@ -229,9 +239,19 @@ void Ellipse::applyContact(Piece* other, Vector2f point) {
 				std::cout<< "contact: " << weighting << "\n" << other->velocity - this->mass *weighting* (other->location-this->location) << "\n";
                 this->updateVelocity(this->velocity - other->mass *weighting* (this->location-other->location));
                 other->updateVelocity(other->velocity - this->mass *weighting* (other->location-this->location));
+                // add a breakup term to prevent sliding past pathologies
+                Vector2f dir = (this->location-other->location);
+                float dist = dir.norm();
+                float overlap = (this->radii[0] + other->radii[0] - dist) + .05;
+
+
+                this->updateLocation(this->location + dir/dist * overlap);
+                other->updateLocation(other->location - dir/dist *overlap);
 		} else if (other->geometry == "Rectangle") {
 			throw std::invalid_argument("Not implemented yet");
-		} 
+		} else if (other->geometry == "Wall") {
+			other->applyContact(this, point);
+		}
 	}
 }
 
@@ -338,6 +358,7 @@ void Agent::applyContact(Piece* other, Vector2f point) {
         if (((Terminal*)other)->satisfyCondition(this));
     } else {
 		if (other->geometry == "Ellipse") {
+			std::cout<< "contact Ellipse \n";
 	        if (this->grabbing) {
 	            this->updateVelocity((this->mass * this->velocity + other->mass * other->velocity)/ (this->mass + other->mass));
 	            other->velocity = this->velocity;
@@ -347,20 +368,39 @@ void Agent::applyContact(Piece* other, Vector2f point) {
 	        } else {
 	            if (this->attach == NULL) {
 	                // only use the object mass
+
 	                float weighting = 2/(this->mass + other->mass)*((this->velocity-other->velocity).dot(this->location-other->location))/((this->location - other->location).squaredNorm());
 	                this->updateVelocity(this->velocity - other->mass *weighting* (this->location-other->location));
 	                other->updateVelocity(other->velocity - this->mass *weighting* (other->location-this->location));
+					Vector2f dir = (this->location-other->location);
+
+					float dist = dir.norm();
+		            float overlap = (this->radii[0] + other->radii[0] - dist) + .05;
+		            std::cout<<"overlap: " << overlap << "\n";
+
+		            this->updateLocation(this->location + dir/dist * overlap);
+		            other->updateLocation(other->location - dir/dist *overlap);
 	            } else{
 	                // use the total mass, but ignore rotational effects
 	                float totalMass = this->mass + this->attach->mass;
 	        		// std::cout<< ((this->velocity-other->velocity).dot(this->location-other->location))/((this->location-other->location).squaredNorm()) << "\n"; 
+
 	                float weighting = 2/(totalMass + other->mass)*((this->velocity-other->velocity).dot(this->location-other->location))/((this->location-other->location).squaredNorm());
 	                this->updateVelocity(this->velocity - other->mass *weighting* (this->location-other->location));
 	                other->updateVelocity(other->velocity - totalMass *weighting* (other->location-this->location)); 
+	            	Vector2f dir = (this->location-other->location);
+		            float dist = dir.norm();
+		            float overlap = (this->radii[0] + other->radii[0] - dist);
+		            std::cout<<"overlap: " << overlap << "\n";
+
+		            this->updateLocation(this->location + dir/dist * overlap);
+		            other->updateLocation(other->location - dir/dist *overlap);
 	            }
 	        }
 	    } else if ( other->geometry == "Rectangle") {
 	        throw std::invalid_argument("Rectangle not yet implemented");
+	    } else if (other -> geometry == "Wall") {
+	    	other->applyContact(this, point);
 	    }
 	}
 }
@@ -555,49 +595,65 @@ bool Terminal::satisfyCondition(Piece* obj) {
     }
 }
 
+Wall::Wall() {
+	// does nothing
+}
+Wall::~Wall() {
+	// does nothing
+}
+Wall::Wall(Wall* rect) {
+	// should call setPiece
+}
+void Wall::setPiece(float mass, Vector2f radii, Vector2f velocity, Vector2f location, Vector3f color, std::string name) {
+	this->type = "Wall";
+	this->geometry = "Wall";
+	this->mass = -1.0f; // this is really infinity
+	this->radii = radii;
+	this->velocity = velocity;
+	this->acceleration = Vector2f(0,0);
+	this->location = location;
+	this->orientation = 0.0f;
+	this->moment = this->calculateMoment();
+	this->rotAcc = 0.0f; // not yet implemented
+	this->rotVel = 0.0f;// not yet implemented
+	this->attach = NULL;
+	this->color = color;
+	this->name = name;
+
+	Vector2f t1(radii[0], radii[1]);
+	Vector2f t2(radii[0], -radii[1]);
+	this->corners[0] = this->location[0] - t1[0];
+	this->corners[1] = this->location[1] - t1[1];
+	this->corners[2] = this->location[0] - t2[0];
+	this->corners[3] = this->location[1] - t2[1];
+	this->corners[4] = this->location[0] + t1[0];
+	this->corners[5] = this->location[1] + t1[1];
+	this->corners[6] = this->location[0] + t2[0];
+	this->corners[7] = this->location[1] + t2[1];
+}
+
+void Wall::applyContact(Piece* other, Vector2f point) {
+	Vector2f normal;
+	// requires that the corners are defined clockwise on the object
+	if (this->lastContact == 0) {
+		normal = Vector2f(this->corners[3] - this->corners[1], this->corners[2] - this->corners[0]); 
+	} else if(this->lastContact == 1) {
+		normal = Vector2f(this->corners[5] - this->corners[3], this->corners[4] - this->corners[2]); 
+	} else if(this->lastContact == 2) {
+		normal = Vector2f(this->corners[7] - this->corners[5], this->corners[6] - this->corners[4]); 
+	} else if(this->lastContact == 3) {
+		normal = Vector2f(this->corners[1] - this->corners[7], this->corners[0] - this->corners[6]); 
+	} else {
+		throw std::invalid_argument("No intersection");
+	}
+	normal = normal/normal.norm();
+	// std::cout<<this->lastContact << "\n" << normal<<"\n";
+
+	other->updateVelocity(other->velocity - 2*other->velocity.dot(normal) * normal);
+	// no change to this velocity
+	// add an offset to location to ensure no sticking
+	// other->updateLocation(other->location - normal * .05);
+}
 
 
-// Wall::Wall() {
-// 	// no initialization
-// }
-// Wall::~Wall(); {
-// 	// no initialization
-// }
-// Wall::Wall(Wall* rect) {
-// 	// no initialization
-// }
-	
-// virtual void Wall::setPiece(float mass, Vector2f radii, Vector2f velocity, Vector2f location, Vector3f color, std::string name) {
-// 	/*
-// 	location and radii are the endpoints of the wall. 
-// 	*/
-// 	this->type = "Wall";
-// 	this->geometry = "Wall";
-// 	this->mass = mass;
-// 	this->radii = radii;
-// 	this->velocity = velocity;
-// 	this->acceleration = Vector2f(0,0);
-// 	this->location = location;
-// 	this->orientation = 0.0f;
-// 	this->moment = this->calculateMoment();
-// 	this->rotAcc = 0.0f; // not yet implemented
-// 	this->rotVel = 0.0f;// not yet implemented
-// 	this->attach = NULL;
-// 	this->color = color;
-// 	this->name = name;
 
-// 	Vector2f t1(radii[0], radii[1]);
-// 	Vector2f t2(radii[0], -radii[1]);
-// 	this->corners[0] = this->location[0] - t1[0];
-// 	this->corners[1] = this->location[1] - t1[1];
-// 	this->corners[2] = this->location[0] + t2[0];
-// 	this->corners[3] = this->location[1] + t2[1];
-// 	this->corners[4] = this->location[0] + t1[0];
-// 	this->corners[5] = this->location[1] + t1[1];
-// 	this->corners[6] = this->location[0] - t2[0];
-// 	this->corners[7] = this->location[1] - t2[1];
-
-
-// }
-
-// 	virtual void applyContact(Piece* other, Vector2f point);

@@ -28,15 +28,29 @@ void Scene::createScene(Vector4f view, float dxy, float dt, float penalty, float
 	this->view[1] = view[1];
 	this->view[2] = view[2];
 	this->view[3] = view[3];
-	this->radii[0] = (this->view[1] - this->view[0])/2;
-	this->radii[1] = (this->view[3] - this->view[2])/2;
+	this->radii[0] = (this->view[1] - this->view[0])/2.0f;
+	this->radii[1] = (this->view[3] - this->view[2])/2.0f;
 	this->center[0] = this->view[0] + radii[0];
-	this->center[1] = this->view[1] + radii[1];
+	this->center[1] = this->view[2] + radii[1];
 	this->dxy = dxy;
 	this->dt = dt;
 	this->penalty = penalty;
 	this->limit = limit;
 	this->agent = NULL;
+	// add the boundaries of the walls
+	std::cout << this->center + Vector2f(0, this->radii[1]) << "\n";
+	this->addWall(Vector2f(this->radii[0], this->dxy * 24), Vector2f(0,0), this->center + Vector2f(0, this->radii[1] + 1.1), Vector3f(1,1,1), "top");
+	this->addWall(Vector2f(this->radii[0], this->dxy * 24), Vector2f(0,0), this->center - Vector2f(0, this->radii[1] + 1.1), Vector3f(1,1,1), "bottom");
+	this->addWall(Vector2f(this->dxy * 24, this->radii[1]), Vector2f(0,0), this->center + Vector2f(this->radii[0] + 1.1, 0), Vector3f(1,1,1), "right");
+	this->addWall(Vector2f(this->dxy * 24, this->radii[1]), Vector2f(0,0), this->center - Vector2f(this->radii[0] + 1.1, 0), Vector3f(1,1,1), "left");
+	for(int i = 0; i < this->pieces.size(); i++) {
+		if (pieces[i]->geometry == "Wall") {
+			Wall* wall = (Wall*)pieces[i];
+			for (int j = 0; j < 8; j ++)
+				std::cout << wall->corners[j] << " ";
+			std::cout << "\n";
+		}
+	}
 }
 
 void Scene::updateScene() {
@@ -122,6 +136,8 @@ void Scene::takeAction(std::string action, Vector2f force) {
 		this->agent->toggleGrab();		
 	} else if (action == "rotate") {
 		this->agent->rotate(this->dt);
+	} else if (action == "stop") {
+		this->agent->updateVelocity(Vector2f(0,0));
 	}
 }
 
@@ -147,7 +163,7 @@ void Scene::display ( GLFWwindow* window ) {
     glLoadIdentity();                            // make sure transformation is "zero'd"
     
     glPushMatrix();
-    GLfloat translation[3] = {this->center[0], this->center[1], 0.1f};
+    GLfloat translation[3] = {this->center[0], this->center[1], 0.0f};
     glTranslatef (translation[0], translation[1], translation[2]);
 
     // drawCircle(100, Height_global / 2.0 , min(Width_global, Height_global) * 0.4 / 2.0, false); 
@@ -171,7 +187,11 @@ void Scene::display ( GLFWwindow* window ) {
 			for(int i = 0; i < this->pieces.size(); i++) {
 				piece = this->pieces[i];
 				if(piece->testAabb(pt)) {
-					if (piece->computeOccupancy(pt)) color = color + piece->color;
+					// std::cout << "detected: ";
+					if (piece->computeOccupancy(pt)) {
+						// std::cout<<piece->name<<" "<< x << " " << y << "\n";
+						color = color + piece->color;
+					}
 				}
 			}
 			if (this->agent->testAabb(pt)) {
@@ -200,6 +220,13 @@ void Scene::addEllipse(float mass, Vector2f radii, Vector2f velocity, Vector2f l
 	piece->setPiece(mass, radii, velocity, location, color, name);
 	this->pieces.push_back(piece);
 }
+
+void Scene::addWall(Vector2f radii, Vector2f velocity, Vector2f location, Vector3f color, std::string name) {
+	Wall* piece = new Wall();
+	piece->setPiece(-1, radii, velocity, location, color, name);
+	this->pieces.push_back(piece);
+}
+
 
 void Scene::addEllipseHazard(Vector2f radii, Vector2f location, Vector3f color, float reward) {
 	Hazard* hazard = new Hazard();
@@ -237,3 +264,5 @@ void Scene::addRectangleTerminal(Vector2f radii, Vector2f location, Vector3f col
 	(attach) ? term->setCondition(chosen, this->agent) : term->setCondition(chosen, NULL);
 	this->terminals.push_back(term);
 }
+
+

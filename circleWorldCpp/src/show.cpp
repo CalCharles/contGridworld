@@ -29,6 +29,8 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int keypress
             if (keypress) action = "rotate"; break;
         case GLFW_KEY_SPACE: 
             if (keypress) action = "space"; break;
+        case GLFW_KEY_Z: 
+            if (keypress) action = "stop"; break;
         default: break;
     }
 }
@@ -36,10 +38,10 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int keypress
 void run_display(std::string display_type, Scene* scene) {
 	initializeRendering();
     
-	int Width_global = int(scene->radii[0] * 2/scene->dxy);
-	int Height_global = int(scene->radii[1] * 2/scene->dxy);
+	int Width_global = int(scene->radii[0] * 2.0f/scene->dxy) + 20;
+	int Height_global = int(scene->radii[1] * 2.0f/scene->dxy) + 20;
 
-    GLFWwindow* window = glfwCreateWindow( Width_global, Height_global, "CS184", NULL, NULL );
+    GLFWwindow* window = glfwCreateWindow( Width_global, Height_global, "circleworld", NULL, NULL );
     if ( !window )
     {
         std::cerr << "Error on window creating" << std::endl;
@@ -75,7 +77,7 @@ void run_display(std::string display_type, Scene* scene) {
 
     double xpos, ypos;
     float newx, newy, mindist, distance;
-    float threshold = 0.1;
+    float threshold = 0;
     int counter = 0;
 
     while( !glfwWindowShouldClose( window ) ) // infinite loop to draw object again and again
@@ -101,7 +103,7 @@ void run_display(std::string display_type, Scene* scene) {
         Vector2f force(0.0f, 0.0f); // currently undefined
         scene->takeAction(action, force);
         counter++;
-        std::cout << "Reward: " << scene->agent->reward << std::endl;
+        // std::cout << "Reward: " << scene->agent->reward << std::endl;
         if(counter == 10) {
         	counter = 0;
         }

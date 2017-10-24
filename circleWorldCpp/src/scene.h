@@ -35,6 +35,7 @@ public:
 
     void addEllipseAgent(float mass, Vector2f radii, Vector2f velocity, Vector2f location, Vector3f color);
     void addEllipse(float mass, Vector2f radii, Vector2f velocity, Vector2f location, Vector3f color, std::string name);
+    void addWall(Vector2f radii, Vector2f velocity, Vector2f location, Vector3f color, std::string name);
     void addEllipseHazard(Vector2f radii, Vector2f location, Vector3f color, float reward);
     void addRectangleHazard(Vector2f radii, Vector2f location, Vector3f color, float reward);
     void addEllipseTerminal(Vector2f radii, Vector2f location, Vector3f color, float reward, bool attach, std::string name);
